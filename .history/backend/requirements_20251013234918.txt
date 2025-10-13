@@ -1,0 +1,9 @@
+Django>=5.0
+djangorestframework>=3.14
+mysqlclient>=2.2
+python-dotenv>=1.0
+djangorestframework-simplejwt>=5.0 # <-- NEW DEPENDENCY for JWT
+dj-rest-auth 
+django-allauth
+Pillow
+corsheaders
