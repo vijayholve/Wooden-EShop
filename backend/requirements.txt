@@ -3,5 +3,8 @@ djangorestframework
 mysqlclient
 python-dotenv
 djangorestframework-simplejwt
-# dj-rest-auth 
-# corsheaders
+dj-rest-auth
+django-cors-headers
+ django-allauth
+ requests
+ cryptography
