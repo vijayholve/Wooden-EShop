@@ -1,8 +1,0 @@
-Django
-djangorestframework
-mysqlclient
-python-dotenv
-djangorestframework-simplejwt
-dj-rest-auth 
-django-allauth
-corsheaders

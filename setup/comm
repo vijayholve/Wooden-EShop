@@ -1,0 +1,8 @@
+cd backend 
+env/scripts/activate 
+py manage.py runserver
+  
+
+cd ecommerce_frontend 
+npm run dev
+
