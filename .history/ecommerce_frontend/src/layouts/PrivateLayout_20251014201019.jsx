@@ -1,13 +1,19 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
 import { AppBar, Toolbar, Typography, Box, Container } from "@mui/material";
-import Header from "../components/Header";
 
 const PrivateLayout = () => {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <Header />
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            Wooden E-Shop
+          </Typography>
+        </Toolbar>
+      </AppBar>
       <Container sx={{ flexGrow: 1, mt: 4 }}>
+        <heade
         <Outlet />
       </Container>
       <Box

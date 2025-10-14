@@ -67,8 +67,9 @@ const ProductList = ({
 
   return (
     // Outer Box ensures minimum height
-    <Box sx={{ width: "100%" }}>
+    <Box sx={{ minHeight: "80vh", width: "100%" }}>
       {/* 1. AMAZING FULL-WIDTH HERO BANNER */}
+      <Header setPage={() => {}} />
       <HeroBanner onShopNow={handleShopNow} />
 
       {/* 2. MAIN CONTENT CONTAINER (Constrained for readability on large screens) */}

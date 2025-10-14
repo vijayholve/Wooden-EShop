@@ -12,7 +12,6 @@ import {
 import { ArrowRight as ArrowRightIcon } from "@mui/icons-material";
 import ProductCard from "./ProductCard";
 import HeroBanner from "../../components/HeroBanner"; // <-- Your full-width banner
-import Header from "../../components/Header";
 // Assume constants (PRIMARY_COLOR, HOVER_COLOR, MOCK_PRODUCTS) are imported or defined.
 const PRIMARY_COLOR = "#9e6a3c";
 const MOCK_PRODUCTS = [
@@ -67,7 +66,7 @@ const ProductList = ({
 
   return (
     // Outer Box ensures minimum height
-    <Box sx={{ width: "100%" }}>
+    <Box sx={{ minHeight: "80vh", width: "100%" }}>
       {/* 1. AMAZING FULL-WIDTH HERO BANNER */}
       <HeroBanner onShopNow={handleShopNow} />
 
@@ -100,7 +99,7 @@ const ProductList = ({
             >
               <ProductCard
                 product={product}
-                onAddToCart={(product) => console.log("Add to cart:", product)}
+                onAddToCart={(product) => console.log('Add to cart:', product)}
                 isAuthenticated={isAuthenticated}
                 inCartQuantity={cart?.[product.id]?.quantity || 0}
                 isAdding={false} // Placeholder for adding state

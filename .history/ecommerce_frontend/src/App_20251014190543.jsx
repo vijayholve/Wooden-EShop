@@ -117,11 +117,9 @@ const App = () => {
           {/* Private Routes */}
           <Route element={<PrivateLayout />}>
             <Route path="/" element={<ProductList />} />
-            <Route path="/profile" element={<ProfileView />} />
-            <Route path="/cart" element={<CartView />} />
           </Route>
         </Routes>
-        {/* AppContent contains older state-based routing; keeping header and layouts now handle navigation. */}
+        <AppContent />
       </Router>
     </AuthProvider>
   );

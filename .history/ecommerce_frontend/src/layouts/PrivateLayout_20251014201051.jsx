@@ -6,8 +6,9 @@ import Header from "../components/Header";
 const PrivateLayout = () => {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <Header />
+   
       <Container sx={{ flexGrow: 1, mt: 4 }}>
+        <Header />
         <Outlet />
       </Container>
       <Box
