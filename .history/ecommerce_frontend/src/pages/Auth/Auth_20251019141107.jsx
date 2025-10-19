@@ -85,16 +85,6 @@ const AuthForm = ({ type, setPage, setMessage }) => {
                 setMessage({ message: 'Registration successful! Please log in.', severity: 'success' });
                 setPage('login');
             }
-            // Inside AuthContext.jsx
-const login = (access, refresh, username) => {
-    localStorage.setItem('accessToken', access);
-    localStorage.setItem('refreshToken', refresh);
-    // Save username so it's available later and to avoid "defined but never used" warning
-    if (username) {
-        localStorage.setItem('username', username);
-    }
-    // ... state updates
-};
         } catch (err) {
             setError(err.message || 'Network error or request failed.');
             setMessage({ message: `Authentication failed: ${err.message}`, severity: 'error' });

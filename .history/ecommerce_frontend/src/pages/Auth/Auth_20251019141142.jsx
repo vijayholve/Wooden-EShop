@@ -89,10 +89,6 @@ const AuthForm = ({ type, setPage, setMessage }) => {
 const login = (access, refresh, username) => {
     localStorage.setItem('accessToken', access);
     localStorage.setItem('refreshToken', refresh);
-    // Save username so it's available later and to avoid "defined but never used" warning
-    if (username) {
-        localStorage.setItem('username', username);
-    }
     // ... state updates
 };
         } catch (err) {
