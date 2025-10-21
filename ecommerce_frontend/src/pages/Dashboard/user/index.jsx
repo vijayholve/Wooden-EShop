@@ -60,8 +60,6 @@ const UserListPage = () => {
         addActionUrl="/register"
         onDataChange={() => {}} 
         editUrl={"/dashboard/users/edit/"}
-
-
       />
     </Box>
   );

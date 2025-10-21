@@ -595,7 +595,6 @@ const ReusableDataGrid = ({
                 rows={gridData}
                 columns={columns}
                 loading={loading}
-                rowCount={gridData.length}
                 pageSizeOptions={pageSizeOptions}
                 paginationModel={paginationModel}
                 onPaginationModelChange={setPaginationModel}
