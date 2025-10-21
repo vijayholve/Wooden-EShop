@@ -9,13 +9,14 @@ import Footer from "./components/Footer.jsx";
 import AuthForm from "./pages/Auth/Auth.jsx";
 import ProfileView from "./pages/Profile/ProfileView.jsx";
 import CartView from "./pages/Profile/CartView.jsx";
+import Dashboard from "./pages/Dashboard/Dashboard.jsx";
 import { Toast } from "./components/Toast.jsx";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import HomePage from "./pages/HomePage";
 import PublicLayout from "./layouts/PublicLayout";
 import PrivateLayout from "./layouts/PrivateLayout";
-
+import UserListPage from "./pages/Dashboard/user/index.jsx";
 // --- ROUTING CONFIGURATION ---
 // Define the routing map outside the components
 const ROUTES = {
@@ -58,50 +59,14 @@ const RouterComponent = ({ page, setPage, handleSetMessage }) => {
 };
 
 // --- MAIN APP CONTENT COMPONENT ---
-const AppContent = () => {
-  // page state manages which route to display
-  const [page, setPage] = useState("home");
-  // message state handles the Toast visibility
-  const [message, setLocalMessage] = useState(null);
-  const { setGlobalMessage } = useAuth(); // Use context function for global updates
-
-  // Function to handle global and local message setting
-  const handleSetMessage = (msg) => {
-    // Set global message via AuthProvider (for context-driven actions)
-    setGlobalMessage(msg);
-    // Set local state for Toast visibility
-    setLocalMessage(msg);
-  };
-
-  return (
-    <div className="flex flex-col min-h-screen">
-      {/* <Header setPage={setPage} />  */}
-      {/* <main className="flex-grow container mx-auto px-4 py-8">
-                <RouterComponent 
-                    page={page} 
-                    setPage={setPage} 
-                    handleSetMessage={handleSetMessage} 
-                />
-            </main> */}
-      <Footer />
-      {/* Render Toast if a local message is present */}
-      {message && (
-        <Toast
-          message={message.message}
-          severity={message.severity}
-          onClose={() => setLocalMessage(null)}
-        />
-      )}
-    </div>
-  );
-};
+// Note: Legacy AppContent removed (routing handled via react-router layouts)
 
 // --- MAIN APP COMPONENT ---
 // Main App component wraps AppContent with AuthProvider
 const App = () => {
   // AuthProvider will manage the global message state
   // Note: The variable globalMessage is not used, but kept for clarity in debugging context flow.
-  const [globalMessage, setGlobalMessage] = useState(null);
+  const [_, setGlobalMessage] = useState(null);
 
   return (
     // Pass the setter down to AuthProvider so it can report success/failure
@@ -117,11 +82,16 @@ const App = () => {
           {/* Private Routes */}
           <Route element={<PrivateLayout />}>
             <Route path="/" element={<ProductList />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            {/* now create user management routes */}
+            <Route path="/users" element={<UserListPage  />} />
             <Route path="/profile" element={<ProfileView />} />
             <Route path="/cart" element={<CartView />} />
+ 
+
           </Route>
         </Routes>
-        {/* AppContent contains older state-based routing; keeping header and layouts now handle navigation. */}
+        {/* Routes handled above. */}
       </Router>
     </AuthProvider>
   );

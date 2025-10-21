@@ -1,24 +1,15 @@
 import React from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, Navigate } from "react-router-dom";
 import { Box, Container, Typography } from "@mui/material";
 import Header from "../components/Header";
-import { useAuth } from "../context/AuthContext.jsx"; // Import useAuth
+import { useAuth } from "../context/AuthContext.jsx";
 
 const PrivateLayout = () => {
-  const { isAuthenticated } = useAuth(); // Get authentication state
-  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
-  // --- Route Guard Logic: Check if user is authenticated ---
-  React.useEffect(() => {
-    if (!isAuthenticated) {
-      // Redirect to login page if not authenticated
-      navigate("/login"); 
-    }
-  }, [isAuthenticated, navigate]);
-
+  // Guard unauthenticated users
   if (!isAuthenticated) {
-    // Render null or a loading indicator while the useEffect is processing the redirect
-    return null; 
+    return <Navigate to="/login" replace />;
   }
   // --------------------------------------------------------
 

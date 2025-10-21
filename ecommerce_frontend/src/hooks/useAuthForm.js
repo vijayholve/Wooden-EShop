@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { API_BASE_URL } from "../utils/config.js";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const useAuthForm = (isLogin) => {
   const [formData, setFormData] = useState({
@@ -11,6 +12,7 @@ const useAuthForm = (isLogin) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -55,10 +57,11 @@ const useAuthForm = (isLogin) => {
         throw new Error(errorMessage);
       }
 
-      // Store user details in localStorage
+      // On success
       if (isLogin) {
-        localStorage.setItem("Eshop-User", JSON.stringify(data));
-        navigate("/"); // Redirect to dashboard after login
+        // Update AuthContext state and tokens, then navigate home
+        await login(data.access, data.refresh);
+        navigate("/");
       } else {
         navigate("/login"); // Redirect to login after registration
       }

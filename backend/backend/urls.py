@@ -53,6 +53,8 @@ urlpatterns = [
     path('api/v1/', include(router.urls)),
     # Backwards-compatible unversioned API root (keeps existing clients working)
     path('api/', include(router.urls)),
+    # Include users/me endpoints under the requested prefix
+    path('api/users/v1/', include('users.urls')),
 ]
 
 # Note: In a real-world project, you would also need to configure serving MEDIA_URL 

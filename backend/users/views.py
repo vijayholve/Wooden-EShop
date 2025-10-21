@@ -73,6 +73,8 @@ class CustomerViewSet(viewsets.ModelViewSet):
         
         if request.method == 'GET':
             # Retrieve action
+            # Ensure the customer_profile exists so response isn't null
+            Customer.objects.get_or_create(user=user)
             serializer = self.get_serializer(user)
             return Response(serializer.data)
 
@@ -100,9 +102,9 @@ class CustomerViewSet(viewsets.ModelViewSet):
             user.email = request.data.get('email', user.email)
             user.save()
 
-            # Update related Customer profile fields
-            customer_profile = getattr(user, 'customer_profile', None)
-            if customer_profile and profile_data:
+            # Ensure the related Customer profile exists, then update its fields
+            customer_profile, _ = Customer.objects.get_or_create(user=user)
+            if profile_data:
                 for attr, value in profile_data.items():
                     setattr(customer_profile, attr, value)
                 customer_profile.save()

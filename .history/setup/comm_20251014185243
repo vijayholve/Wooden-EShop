@@ -1,8 +1,0 @@
-cd backend 
-env/scripts/activate 
-py manage.py runserver
-  
-
-cd eccomefrontend 
-npm run dev
-
