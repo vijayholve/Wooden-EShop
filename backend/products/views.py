@@ -9,6 +9,7 @@ from django.utils.text import slugify
 from django.db import IntegrityError
 from django.core.exceptions import ValidationError as DjangoValidationError
 
+
 class ProductViewSet(viewsets.ModelViewSet):
     """
     A ViewSet for viewing and editing Product instances.

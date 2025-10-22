@@ -1,69 +1,78 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState } from "react";
+import ReusableDataGrid from "../../../ui-component/ReusableDataGrid";
 import { Box } from "@mui/material";
 import { useAuth } from "../../../context/AuthContext.jsx";
-import ReusableDataGrid from "../../../ui-component/ReusableDataGrid.jsx";
 
-const UserListPage = () => {
+const UserList = () => {
   const { apiFetch } = useAuth();
-  const [rows, setRows] = useState([]);
+  // State for forcing reload, typically incremented after a successful action (like delete)
+  const [reloadKey, setReloadKey] = useState(0); 
 
-  const load = useCallback(async () => {
+  const handleDelete = async (id) => {
+    // Note: User deletion typically requires an 'id' or 'pk', not a 'slug'.
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
-      const res = await apiFetch("/users/", { method: "GET" });
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : [];
-      const list = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.results)
-        ? data.results
-        : [];
-
-      const normalized = list.map((u) => ({
-        id: u.id,
-        username: u.username,
-        first_name: u.first_name,
-        last_name: u.last_name,
-        email: u.email,
-        phone_number: u.customer_profile?.phone_number || "",
-        city: u.customer_profile?.city || "",
-        country: u.customer_profile?.country || "",
-      }));
-      setRows(normalized);
-    } catch (e) {
-      console.error("Failed to load users", e);
-      setRows([]);
+      // Assuming DELETE request targets: /api/v1/users/{id}/
+      await apiFetch(`/users/${id}/`, { method: "DELETE" });
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      console.error("Failed to delete user", err);
+      // toast.error("Failed to delete user.");
     }
-  }, [apiFetch]);
+  };
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
+  // Define columns based on the fields exposed in backend/users/serializers.py
   const columns = [
-    { field: "id", headerName: "ID", width: 80 },
-    { field: "username", headerName: "Username", flex: 1, minWidth: 140 },
-    { field: "first_name", headerName: "First Name", flex: 1, minWidth: 140 },
-    { field: "last_name", headerName: "Last Name", flex: 1, minWidth: 140 },
-    { field: "email", headerName: "Email", flex: 1.4, minWidth: 200 },
-    { field: "phone_number", headerName: "Phone", flex: 1, minWidth: 140 },
-    { field: "city", headerName: "City", flex: 1, minWidth: 120 },
-    { field: "country", headerName: "Country", flex: 1, minWidth: 120 },
+    { field: "email", headerName: "Email", width: 250 },
+    { field: "first_name", headerName: "First Name", width: 150 },
+    { field: "last_name", headerName: "Last Name", width: 150 },
+    {
+      field: "is_staff",
+      headerName: "Admin",
+      width: 100,
+      type: "boolean",
+    },
+    {
+      field: "is_active",
+      headerName: "Active",
+      width: 100,
+      type: "boolean",
+    },
+    // {
+    //     field: "date_joined",
+    //     headerName: "Joined",
+    //     width: 180,
+    //     type: "dateTime",
+    //     // Simple value getter/formatter to display date only
+    //     valueFormatter: (params) => {
+    //         if (params.value) {
+    //             return new Date(params.value).toLocaleDateString();
+    //         }
+    //         return '';
+    //     }
+    // },
   ];
 
+  // The fetchUrl is set to the endpoint that is now correctly mapped
+  const FETCH_URL = "/users/"; 
+  
   return (
     <Box sx={{ p: 1 }}>
       <ReusableDataGrid
-        title="Users"
-        fetchUrl={"/api/v1/users/list/"}
+        title="User Management"
+        fetchUrl={FETCH_URL}
+        // fetchUrl will perform a GET request with query params by default (isPostRequest=false)
+        isPostRequest={false} 
+        reloadKey={reloadKey}
         columns={columns}
-        data={rows}
-        searchPlaceholder="Search users..."
-        addActionUrl="/register"
-        onDataChange={() => {}} 
-        editUrl={"/dashboard/users/edit/"}
+        getRowId={(row) => row.id} // Use 'id' for users
+        height={520}
+        // editUrl={"/dashboard/users/edit"} // Uncomment if you create the edit page
+        // viewUrl={"/dashboard/users/view"} // Uncomment if you create the view page
+        onDelete={handleDelete}
       />
     </Box>
   );
 };
 
-export default UserListPage;
+export default UserList;

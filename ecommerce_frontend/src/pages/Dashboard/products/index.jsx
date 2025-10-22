@@ -51,12 +51,16 @@ const ProductsList = () => {
       console.error("Failed to delete product", err);
       // Optionally show a toast
     }
+
   };
+  
 
   // Define columns for the grid
-  const columns = [
+const columns = [
     { field: "name", headerName: "Name", width: 200 },
-    { field: "category", headerName: "Category", width: 150 },
+    // CORRECTED: Changed 'category' to 'brand' as 'brand' is a field present 
+    // in the ProductSerializer for grouping/display.
+    { field: "brand", headerName: "Brand", width: 150 }, 
     { field: "price", headerName: "Price", width: 120 },
     { field: "stock_quantity", headerName: "Stock", width: 100 },
     {
@@ -66,12 +70,11 @@ const ProductsList = () => {
       type: "boolean",
     },
   ];
-
   return (
     <Box sx={{ p: 1 }}>
       <ReusableDataGrid
         title="Products"
-        fetchUrl="/api/v1/products/list/"
+        fetchUrl="/api/v1/products/list"
         isPostRequest={true} 
         reloadKey={reloadKey}
         addActionUrl="/dashboard/products/create"

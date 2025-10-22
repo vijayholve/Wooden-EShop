@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import PropTypes from "prop-types"; // Import PropTypes
 
-// material-ui
+// Material UI
 import {
   Grid,
   Button,
@@ -9,17 +10,14 @@ import {
   IconButton,
   TextField,
   InputAdornment,
-  Chip,
   Typography,
   Tooltip,
 } from "@mui/material";
 import { styled } from "@mui/system";
 import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
-import FilterListIcon from "@mui/icons-material/FilterList";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { DataGrid } from "@mui/x-data-grid";
-import { toast } from "react-hot-toast";
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -27,10 +25,13 @@ import {
   PersonAdd as PersonAddIcon,
 } from "@mui/icons-material";
 
-// project imports
-import MainCard from "../ui-component/cards/MainCard";
-import SecondaryAction from "../ui-component/cards/CardSecondaryAction";
-// import { gridSpacing } from "..
+// Project Imports
+import MainCard from "./cards/MainCard";
+import SecondaryAction from "./cards/CardSecondaryAction";
+import { useAuth } from "../context/AuthContext"; // CRITICAL: Import useAuth
+import { toast } from "react-hot-toast"; // Assuming react-hot-toast is used
+
+// --- Styled Components ---
 
 const ActionWrapper = styled(Box)({
   display: "flex",
@@ -46,7 +47,6 @@ const HeaderSearchWrapper = styled(Box)({
   gap: "16px",
   flexWrap: "wrap",
   marginLeft: "auto",
-  // Add styling to align items correctly in the header
   "@media (max-width: 600px)": {
     marginLeft: 0,
     marginTop: "16px",
@@ -54,7 +54,8 @@ const HeaderSearchWrapper = styled(Box)({
   },
 });
 
-// Replace old DataGridMobileCard with a column/field-aware version
+// --- Mobile Card Component ---
+
 const DataGridMobileCard = ({
   row,
   columns,
@@ -73,7 +74,14 @@ const DataGridMobileCard = ({
     } catch {
       /* ignore valueGetter errors */
     }
-    return row?.[col.field] ?? "";
+    const value = row?.[col.field];
+    
+    // Handle boolean display explicitly for better mobile view
+    if (col.type === 'boolean' && typeof value === 'boolean') {
+      return value ? 'Yes' : 'No';
+    }
+    
+    return value ?? "";
   };
 
   const displayColumns = columns.filter((c) => c.field !== "actions");
@@ -149,7 +157,18 @@ const DataGridMobileCard = ({
   );
 };
 
-// Remove the broken isMobile init. Add a safe breakpoint watcher.
+DataGridMobileCard.propTypes = {
+  row: PropTypes.object.isRequired,
+  columns: PropTypes.array.isRequired,
+  onView: PropTypes.func,
+  onEdit: PropTypes.func,
+  onDelete: PropTypes.func,
+  onEnroll: PropTypes.func,
+  hasActions: PropTypes.bool.isRequired,
+};
+
+// --- Main Component ---
+
 const MOBILE_BREAKPOINT = 768;
 const ReusableDataGrid = ({
   title,
@@ -160,22 +179,17 @@ const ReusableDataGrid = ({
   addActionUrl,
   EnrollActionUrl,
   viewUrl,
-  // filters disabled in simple mode
   data: clientSideData = [],
-  // simplified component ignores server fetching & permissions
   customActionsHeader = [],
   searchPlaceholder = "Search...",
   showSearch = true,
   showRefresh = true,
-  // showFilters disabled in simple mode
   pageSizeOptions = [5, 10, 25, 50],
   defaultPageSize = 10,
   height = 600,
   transformData = null,
-  // server fetch options
   isPostRequest = false,
   requestMethod,
-  // external trigger to reload server data
   reloadKey = 0,
   onRowClick = null,
   selectionModel = null,
@@ -186,18 +200,16 @@ const ReusableDataGrid = ({
   customToolbar = null,
   loadingOverlay = null,
   errorOverlay = null,
-  // SCD filters disabled in simple mode
   customActions = [],
   getRowId: getRowIdProp = (row) => row.id,
   schoolNameMap = {},
   classNameMap = {},
   divisionNameMap = {},
-  // sortBy left for API compatibility, unused in simple mode
-  onDataChange = null,
-  onDelete, // optional callback for delete
+  onDelete,
 }) => {
   const navigate = useNavigate();
-  // const [searchText, setSearchText] = useState('');
+  const { apiFetch } = useAuth(); // CRITICAL: Access the authenticated fetch utility
+  
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined"
       ? window.innerWidth < MOBILE_BREAKPOINT
@@ -212,13 +224,10 @@ const ReusableDataGrid = ({
 
   const [loading, setLoading] = useState(false);
   const [paginationModel, setPaginationModel] = useState({
-    // DataGrid paginationModel is zero-based (page: 0 is first page)
-    page: 0,
+    page: 0, // 0-based page
     pageSize: defaultPageSize,
   });
 
-  // Stable handler to update pagination only when values actually change.
-  // Use functional update so the handler identity can be stable (no deps).
   const handlePaginationModelChange = useCallback((newModel) => {
     if (!newModel) return;
     setPaginationModel((prev) => {
@@ -232,31 +241,12 @@ const ReusableDataGrid = ({
       return { page: newPage, pageSize: newPageSize };
     });
   }, []);
-  // rowCount derived from gridData
+
   const [searchText, setSearchText] = useState("");
-  // const [selectedRow, setSelectedRow] = useState(null);
-  // gridFilters not used in simple mode
   const [gridData, setGridData] = useState([]);
-  // server-side total rows (used when fetchUrl provided)
   const [serverTotalCount, setServerTotalCount] = useState(0);
-  // keep a ref to the latest onDataChange so it doesn't trigger recomputeData when parent passes a new function
-  const onDataChangeRef = React.useRef(onDataChange);
-  React.useEffect(() => {
-    onDataChangeRef.current = onDataChange;
-  }, [onDataChange]);
-  // simplified: no user/permission/SCD dependencies
 
-  // Sync external filters prop with internal gridFilters state
-
-  // removed unused transformDocumentData helper
-
-  // Use a ref to store the latest filters without triggering a re-render
-  // no external filters in simple mode
-
-  // stable key for gridFilters to use in hook deps
-  // removed unused gridFiltersKey memo
-
-  // Simple client-side filtering only
+  // Client-side implementation 
   const recomputeData = useCallback(() => {
     const filteredData = clientSideData.filter((item) => {
       if (!searchText) return true;
@@ -271,33 +261,13 @@ const ReusableDataGrid = ({
     const transformedData = transformData
       ? filteredData.map(transformData)
       : filteredData;
-    // Avoid updating state if data didn't change (shallow compare by row id)
-    const prev = prevGridDataRef.current || [];
-    const same =
-      prev.length === transformedData.length &&
-      prev.every(
-        (r, i) => getRowIdProp(r) === getRowIdProp(transformedData[i])
-      );
-    if (!same) setGridData(transformedData);
-    if (onDataChangeRef.current) onDataChangeRef.current(transformedData);
-  }, [clientSideData, searchText, transformData, getRowIdProp]);
+    setGridData(transformedData);
+  }, [clientSideData, searchText, transformData]);
 
-  // keep a ref of the previous gridData so recomputeData can compare without
-  // adding gridData to its dependency list (avoids update loops)
-  const prevGridDataRef = useRef([]);
+  // Server-side fetching logic
   useEffect(() => {
-    prevGridDataRef.current = gridData;
-  }, [gridData]);
-
-  // Filters change handler is unnecessary in simple mode
-
-  useEffect(() => {
-    recomputeData();
-  }, [recomputeData]);
-
-  // Server-side fetching when fetchUrl is provided
-  useEffect(() => {
-    if (!fetchUrl) return;
+    // Only proceed if fetchUrl is provided and we have the authentication utility
+    if (!fetchUrl || !apiFetch) return; 
 
     let cancelled = false;
     const controller = new AbortController();
@@ -305,7 +275,7 @@ const ReusableDataGrid = ({
     const doFetch = async () => {
       setLoading(true);
       try {
-        const pageToSend = (paginationModel?.page ?? 0) + 1; // server expects 1-based page
+        const pageToSend = (paginationModel?.page ?? 0) + 1; // Server expects 1-based page
         const sizeToSend = paginationModel?.pageSize ?? defaultPageSize;
 
         const method =
@@ -313,103 +283,102 @@ const ReusableDataGrid = ({
           (isPostRequest ? "POST" : "GET");
 
         let res;
-        console.log("Fetching data for ReusableDataGrid", { fetchUrl, method });
+        
+        // Prepare the payload or URLSearchParams
+        let requestPayload = { page: pageToSend, size: sizeToSend };
+        if (searchText) {
+            // DRF filtering convention
+            requestPayload.search = searchText; 
+        }
+
         if (method === "GET") {
-          // build query params
-          const params = new URLSearchParams();
-          params.set("page", String(pageToSend));
-          params.set("size", String(sizeToSend));
-          if (searchText) params.set("search", searchText);
-          const url = fetchUrl.includes("?")
-            ? `${fetchUrl}&${params}`
-            : `${fetchUrl}?${params}`;
-          res = await fetch(url, { method: "GET", signal: controller.signal });
-        } else if (method === "POST") {
-          const body = { page: pageToSend, size: sizeToSend };
-          if (searchText) body.search = searchText;
-          res = await fetch(fetchUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
+          const params = new URLSearchParams(requestPayload);
+          console.log("Fetch URL with params:", fetchUrl, params.toString());
+          // const url = fetchUrl.includes("?")
+          //   ? `${fetchUrl}&${params}`
+          //   : `${fetchUrl}?${params}`;
+            
+          res = await apiFetch(fetchUrl, { 
+            method: "GET", 
             signal: controller.signal,
+            rawResponse: true // Instruct apiFetch to return the raw Response object
+          });
+          
+        } else if (method === "POST") {
+          res = await apiFetch(fetchUrl, {
+            method: "POST",
+            body: requestPayload, // apiFetch handles JSON.stringify(body)
+            signal: controller.signal,
+            rawResponse: true
           });
         } else {
-          const body = { page: pageToSend, size: sizeToSend };
-          if (searchText) body.search = searchText;
-          res = await fetch(fetchUrl, {
-            method,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-            signal: controller.signal,
-          });
-          console.log("Fetched data for ReusableDataGrid", { res });
+            // Handle other methods (PUT/PATCH/DELETE)
+            console.warn(`Unsupported request method ${method} for list fetching.`);
+            res = { ok: false, status: 405, text: async () => `Method ${method} not allowed.` };
         }
 
         if (cancelled) return;
+
         if (!res.ok) {
-          // try to read json error
-          let errText = await res.text();
-          console.error(
-            "Server returned error for fetchUrl",
-            res.status,
-            errText
-          );
+          const errorDetail = await res.text();
+          console.error("Server returned error for fetchUrl", res.status, errorDetail);
+          toast.error(`Failed to load data (Status: ${res.status}). Check API endpoint and authentication.`);
           setGridData([]);
           setServerTotalCount(0);
-          setLoading(false);
           return;
         }
 
         const json = await res.json();
 
-        // Response can be array or paginated object
+        // Handle various response formats (DRF pagination, simple array, custom paginated)
+        let newGridData = [];
+        let newTotalCount = 0;
+
         if (Array.isArray(json)) {
-          setGridData(transformData ? json.map(transformData) : json);
-          setServerTotalCount(json.length);
-        } else if (json.results && Array.isArray(json.results)) {
-          setGridData(
-            transformData ? json.results.map(transformData) : json.results
-          );
-          setServerTotalCount(
-            typeof json.count === "number" ? json.count : json.results.length
-          );
-        } else if (json.data && Array.isArray(json.data)) {
-          setGridData(transformData ? json.data.map(transformData) : json.data);
-          setServerTotalCount(
-            typeof json.total === "number" ? json.total : json.data.length
-          );
+          newGridData = json;
+          newTotalCount = json.length;
+        } else if (json.results && Array.isArray(json.results)) { // DRF style pagination
+          newGridData = json.results;
+          newTotalCount = typeof json.count === "number" ? json.count : json.results.length;
+        } else if (json.data && Array.isArray(json.data)) { // Custom style pagination
+          newGridData = json.data;
+          newTotalCount = typeof json.total === "number" ? json.total : json.data.length;
         } else {
-          // fallback: try to find an array in the response
-          const arr = Object.values(json).find((v) => Array.isArray(v));
-          if (arr) {
-            setGridData(transformData ? arr.map(transformData) : arr);
-            setServerTotalCount(arr.length);
-          } else {
-            // unknown format
-            console.warn("Unexpected fetchUrl response shape", json);
-            setGridData([]);
-            setServerTotalCount(0);
-          }
+          console.warn("Unexpected API response structure:", json);
         }
+        
+        const finalData = transformData ? newGridData.map(transformData) : newGridData;
+        setGridData(finalData);
+        setServerTotalCount(newTotalCount);
+
       } catch (err) {
         if (err.name === "AbortError") return;
         console.error("Failed to fetch data for ReusableDataGrid", err);
+        toast.error("Network or Authentication error occurred.");
         setGridData([]);
         setServerTotalCount(0);
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
-
-    doFetch();
-
+    
+    // Only fetch if a URL is provided (server-side grid)
+    if (fetchUrl) {
+      doFetch();
+    } else {
+        // For client-side data (simple mode), run recompute on state change
+        recomputeData();
+        setServerTotalCount(clientSideData.length);
+    }
+    
     return () => {
       cancelled = true;
       controller.abort();
     };
-    // paginationModel and searchText are intentional deps
+    
   }, [
     fetchUrl,
+    apiFetch, // CRITICAL DEPENDENCY ADDED
     paginationModel.page,
     paginationModel.pageSize,
     searchText,
@@ -418,23 +387,33 @@ const ReusableDataGrid = ({
     transformData,
     defaultPageSize,
     reloadKey,
+    // clientSideData, //looping
+    // recomputeData //looping
   ]);
 
   const handleOnClickDelete = React.useCallback(
     async (id) => {
+      // NOTE: This uses the onDelete prop which should be implemented in the parent (e.g., products/index.jsx)
       if (!onDelete) return;
+      // Using window.confirm is acceptable here, but usually replaced by a MUI Dialog in production apps
       if (window.confirm("Are you sure you want to delete this item?")) {
         try {
           await onDelete(id);
           toast.success("Item deleted successfully!");
-          recomputeData();
+          // Trigger data reload for server-side or recompute for client-side
+          if (fetchUrl) {
+              setReloadKey((k) => k + 1);
+          } else {
+              // Note: client-side delete relies on parent re-passing new data
+              recomputeData();
+          }
         } catch (err) {
           console.error(err);
           toast.error("Failed to delete item.");
         }
       }
     },
-    [onDelete, recomputeData]
+    [onDelete, fetchUrl] 
   );
 
   const handleOnClickView = React.useCallback(
@@ -443,29 +422,36 @@ const ReusableDataGrid = ({
     },
     [navigate, viewUrl]
   );
+  
   const handleOnClickEnrollActionUrl = React.useCallback(
     (id) => {
       navigate(`${EnrollActionUrl}/${id}`);
     },
     [navigate, EnrollActionUrl]
   );
+  
   const handleSearch = (event) => {
     const newSearchText = event.target.value;
     setSearchText(newSearchText);
+    // When searching on server-side, reset to page 1
+    if (fetchUrl) {
+        setPaginationModel((p) => ({ ...p, page: 0 }));
+    }
   };
 
   const handleRefresh = () => {
     setSearchText("");
     setPaginationModel({ page: 0, pageSize: defaultPageSize });
-    recomputeData();
+    // Force refetch by incrementing reload key
+    setReloadKey((k) => k + 1); 
   };
 
   const handleRowClick = (params) => {
     if (onRowClick) {
       onRowClick(params);
     }
-    // setSelectedRow(params.row);
   };
+  
   const hasActions =
     editUrl ||
     deleteUrl ||
@@ -476,23 +462,25 @@ const ReusableDataGrid = ({
   // helper to map id to name if maps are provided
   const getNameForId = (id, map) => (map && map[id] ? map[id] : id);
 
+  // Process columns with value formatters for IDs
   const processedColumns = React.useMemo(() => {
     return propColumns.map((col) => {
-      if (col.field === "schoolId") {
+      // Logic for transforming IDs into names for display
+      if (col.field === "schoolId" && Object.keys(schoolNameMap).length > 0) {
         return {
           ...col,
           headerName: col.headerName || "School",
           valueFormatter: (params) => getNameForId(params.value, schoolNameMap),
         };
       }
-      if (col.field === "classId") {
+      if (col.field === "classId" && Object.keys(classNameMap).length > 0) {
         return {
           ...col,
           headerName: col.headerName || "Class",
           valueFormatter: (params) => getNameForId(params.value, classNameMap),
         };
       }
-      if (col.field === "divisionId") {
+      if (col.field === "divisionId" && Object.keys(divisionNameMap).length > 0) {
         return {
           ...col,
           headerName: col.headerName || "Division",
@@ -505,6 +493,7 @@ const ReusableDataGrid = ({
     });
   }, [propColumns, schoolNameMap, classNameMap, divisionNameMap]);
 
+  // Memoize columns including the action column
   const columns = React.useMemo(() => {
     if (!hasActions) return processedColumns;
 
@@ -515,8 +504,11 @@ const ReusableDataGrid = ({
       sortable: false,
       filterable: false,
       renderCell: (params) => {
-        const hasCustomActions = customActions.length > 0;
-        if (hasCustomActions) {
+        // Use row.slug if provided for unique identification/navigation, otherwise fall back to row.id
+        const rowId = getRowIdProp(params.row);
+        
+        // Render custom actions first
+        if (customActions.length > 0) {
           return (
             <ActionWrapper>
               {customActions.map((action, index) => (
@@ -525,18 +517,8 @@ const ReusableDataGrid = ({
                     size="small"
                     color={action.color || "primary"}
                     onClick={() => action.onClick(params.row)}
-                    sx={{
-                      "&:hover": {
-                        backgroundColor: `rgba(${
-                          action.color === "error"
-                            ? "244, 67, 54"
-                            : action.color === "info"
-                            ? "33, 150, 243"
-                            : "25, 118, 210"
-                        }, 0.1)`,
-                        transform: "scale(1.1)",
-                      },
-                    }}
+                    // Added a simple transition for better UX
+                    sx={{ transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.1)' } }}
                   >
                     {action.icon}
                   </IconButton>
@@ -546,6 +528,7 @@ const ReusableDataGrid = ({
           );
         }
 
+        // Render standard actions
         return (
           <ActionWrapper>
             {viewUrl && (
@@ -553,13 +536,8 @@ const ReusableDataGrid = ({
                 <IconButton
                   size="small"
                   color="info"
-                  onClick={() => handleOnClickView(params.row.id)}
-                  sx={{
-                    "&:hover": {
-                      backgroundColor: "rgba(33, 150, 243, 0.1)",
-                      transform: "scale(1.1)",
-                    },
-                  }}
+                  onClick={() => handleOnClickView(rowId)}
+                  sx={{ transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.1)' } }}
                 >
                   <ViewIcon />
                 </IconButton>
@@ -570,13 +548,8 @@ const ReusableDataGrid = ({
                 <IconButton
                   size="small"
                   color="secondary"
-                  onClick={() => handleOnClickEnrollActionUrl(params.row.id)}
-                  sx={{
-                    "&:hover": {
-                      backgroundColor: "rgba(156, 39, 176, 0.1)",
-                      transform: "scale(1.1)",
-                    },
-                  }}
+                  onClick={() => handleOnClickEnrollActionUrl(rowId)}
+                  sx={{ transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.1)' } }}
                 >
                   <PersonAddIcon />
                 </IconButton>
@@ -587,30 +560,21 @@ const ReusableDataGrid = ({
                 <IconButton
                   size="small"
                   color="primary"
-                  onClick={() => navigate(`${editUrl}/${params.row.id}`)}
-                  sx={{
-                    "&:hover": {
-                      backgroundColor: "rgba(25, 118, 210, 0.1)",
-                      transform: "scale(1.1)",
-                    },
-                  }}
+                  onClick={() => navigate(`${editUrl}/${rowId}`)}
+                  sx={{ transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.1)' } }}
                 >
                   <EditIcon />
                 </IconButton>
               </Tooltip>
             )}
-            {deleteUrl && onDelete && (
+            {/* Delete relies on onDelete prop being passed */}
+            {onDelete && (
               <Tooltip title="Delete">
                 <IconButton
                   size="small"
                   color="error"
-                  onClick={() => handleOnClickDelete(params.row.id)}
-                  sx={{
-                    "&:hover": {
-                      backgroundColor: "rgba(244, 67, 54, 0.1)",
-                      transform: "scale(1.1)",
-                    },
-                  }}
+                  onClick={() => handleOnClickDelete(rowId)}
+                  sx={{ transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.1)' } }}
                 >
                   <DeleteIcon />
                 </IconButton>
@@ -629,13 +593,15 @@ const ReusableDataGrid = ({
     viewUrl,
     EnrollActionUrl,
     editUrl,
-    deleteUrl,
-    onDelete,
+    onDelete, 
     navigate,
     handleOnClickDelete,
     handleOnClickEnrollActionUrl,
     handleOnClickView,
+    getRowIdProp,
   ]);
+  
+  // Secondary header content placeholder
   const secondaryHeader = (
     <Grid
       container
@@ -647,7 +613,8 @@ const ReusableDataGrid = ({
       {customActionsHeader && <Grid item>{customActionsHeader}</Grid>}
     </Grid>
   );
-  // Header content to be passed to MainCard's secondary prop
+
+  // Search and Refresh controls for the card header
   const headerSearchControls = (
     <HeaderSearchWrapper>
       {showSearch && (
@@ -676,13 +643,14 @@ const ReusableDataGrid = ({
           Refresh
         </Button>
       )}
-      {/* Filters chip hidden in simple mode */}
+      {/* Add action button with link */}
       {addActionUrl && (
         <SecondaryAction icon={<AddIcon />} link={addActionUrl} />
       )}
     </HeaderSearchWrapper>
   );
 
+  // Render the component
   return (
     <MainCard
       title={
@@ -705,68 +673,79 @@ const ReusableDataGrid = ({
     >
       {customToolbar && customToolbar()}
 
-      {/* Simplified: hide SCD filter container in simple mode */}
-
-      <Grid
-        container
-        //  spacing={gridSpacing}
-      >
+      <Grid container>
         <Grid item xs={12}>
           {isMobile ? (
             // Mobile: card list view
             <Box>
-              {gridData.map((row) => (
-                <DataGridMobileCard
-                  key={getRowIdProp(row)}
-                  row={row}
-                  columns={columns}
-                  hasActions={hasActions}
-                  onView={viewUrl ? () => handleOnClickView(row.id) : undefined}
-                  onEdit={
-                    editUrl ? () => navigate(`${editUrl}/${row.id}`) : undefined
-                  }
-                  onDelete={
-                    deleteUrl ? () => handleOnClickDelete(row.id) : undefined
-                  }
-                  onEnroll={
-                    EnrollActionUrl
-                      ? () => handleOnClickEnrollActionUrl(row.id)
-                      : undefined
-                  }
-                />
-              ))}
+              {loading ? (
+                <Box sx={{ p: 2, textAlign: 'center' }}>
+                    <Typography>Loading...</Typography>
+                </Box>
+              ) : gridData.length === 0 ? (
+                <Box sx={{ p: 2, textAlign: 'center' }}>
+                    <Typography color="text.secondary">No data found.</Typography>
+                </Box>
+              ) : (
+                gridData.map((row) => {
+                  const rowId = getRowIdProp(row);
+                  return (
+                    <DataGridMobileCard
+                      key={rowId}
+                      row={row}
+                      columns={columns}
+                      hasActions={hasActions}
+                      onView={viewUrl ? () => handleOnClickView(rowId) : undefined}
+                      onEdit={
+                        editUrl ? () => navigate(`${editUrl}/${rowId}`) : undefined
+                      }
+                      onDelete={
+                        onDelete ? () => handleOnClickDelete(rowId) : undefined
+                      }
+                      onEnroll={
+                        EnrollActionUrl
+                          ? () => handleOnClickEnrollActionUrl(rowId)
+                          : undefined
+                      }
+                    />
+                  );
+                })
+              )}
 
-              {/* Simple pager for mobile */}
-              <Box
-                sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}
-              >
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={paginationModel.page === 0 || loading}
-                  onClick={() =>
-                    setPaginationModel((p) => ({
-                      ...p,
-                      page: Math.max(0, p.page - 1),
-                    }))
-                  }
+              {/* Simple manual pager for mobile */}
+              {fetchUrl && (
+                <Box
+                  sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}
                 >
-                  Prev
-                </Button>
-                <Typography variant="caption">
-                  Page {paginationModel.page + 1}
-                </Typography>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={loading}
-                  onClick={() =>
-                    setPaginationModel((p) => ({ ...p, page: p.page + 1 }))
-                  }
-                >
-                  Next
-                </Button>
-              </Box>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={paginationModel.page === 0 || loading}
+                    onClick={() =>
+                      setPaginationModel((p) => ({
+                        ...p,
+                        page: Math.max(0, p.page - 1),
+                      }))
+                    }
+                  >
+                    Prev
+                  </Button>
+                  <Typography variant="caption">
+                    Page {paginationModel.page + 1}
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    // Assume next page available if not the last page based on server total count
+                    disabled={loading || (paginationModel.page + 1) * paginationModel.pageSize >= serverTotalCount}
+                    onClick={() =>
+                      setPaginationModel((p) => ({ ...p, page: p.page + 1 }))
+                    }
+                  >
+                    Next
+                  </Button>
+                </Box>
+              )}
             </Box>
           ) : (
             // Desktop: DataGrid table
@@ -779,6 +758,7 @@ const ReusableDataGrid = ({
                 pageSizeOptions={pageSizeOptions}
                 paginationModel={paginationModel}
                 onPaginationModelChange={handlePaginationModelChange}
+                // Use 'server' mode only if a fetchUrl is provided, otherwise client
                 paginationMode={fetchUrl ? "server" : "client"}
                 getRowId={getRowIdProp}
                 onRowClick={onRowClick || handleRowClick}
@@ -790,6 +770,7 @@ const ReusableDataGrid = ({
                 loadingOverlay={loadingOverlay}
                 errorOverlay={errorOverlay}
                 sx={{
+                  // Added styling for better visual feedback
                   "& .MuiDataGrid-row:hover": {
                     backgroundColor: "rgba(25, 118, 210, 0.04)",
                     cursor: onRowClick ? "pointer" : "default",
@@ -810,32 +791,29 @@ const ReusableDataGrid = ({
   );
 };
 
-import PropTypes from "prop-types";
+// --- PropTypes Definition ---
 
 ReusableDataGrid.propTypes = {
   columns: PropTypes.arrayOf(PropTypes.object).isRequired,
   title: PropTypes.string,
   fetchUrl: PropTypes.string,
   editUrl: PropTypes.string,
-  deleteUrl: PropTypes.string,
+  deleteUrl: PropTypes.string, // Note: deleteUrl is unused, onDelete callback is used
   addActionUrl: PropTypes.string,
   EnrollActionUrl: PropTypes.string,
   viewUrl: PropTypes.string,
-  filters: PropTypes.object,
-  data: PropTypes.array,
+  data: PropTypes.array, // Data for client-side grid only
   isPostRequest: PropTypes.bool,
   requestMethod: PropTypes.string,
-  sendBodyOnGet: PropTypes.bool,
-  entityName: PropTypes.string,
   customActionsHeader: PropTypes.node,
   searchPlaceholder: PropTypes.string,
   showSearch: PropTypes.bool,
   showRefresh: PropTypes.bool,
-  showFilters: PropTypes.bool,
   pageSizeOptions: PropTypes.array,
   defaultPageSize: PropTypes.number,
   height: PropTypes.number,
   transformData: PropTypes.func,
+  reloadKey: PropTypes.number, // External key to force data reload
   onRowClick: PropTypes.func,
   selectionModel: PropTypes.any,
   onSelectionModelChange: PropTypes.func,
@@ -845,17 +823,12 @@ ReusableDataGrid.propTypes = {
   customToolbar: PropTypes.func,
   loadingOverlay: PropTypes.node,
   errorOverlay: PropTypes.node,
-  showSchoolFilter: PropTypes.bool,
-  showClassFilter: PropTypes.bool,
-  showDivisionFilter: PropTypes.bool,
-  enableFilters: PropTypes.bool,
   customActions: PropTypes.array,
   getRowId: PropTypes.func,
   schoolNameMap: PropTypes.object,
   classNameMap: PropTypes.object,
   divisionNameMap: PropTypes.object,
-  sortBy: PropTypes.string,
-  onDataChange: PropTypes.func,
+  onDelete: PropTypes.func, // Callback for delete action
 };
 
 export default ReusableDataGrid;
