@@ -42,8 +42,11 @@ const Sidebar = ({ onNavigate, active }) => (
       <ListItemButton onClick={() => onNavigate("/cart")}>
         <ListItemText primary="My Cart" secondary="Review items" />
       </ListItemButton>
-      <ListItemButton onClick={() => onNavigate("/dashboard/products")}> 
-        <ListItemText primary="Products Management" secondary="Manage products" />
+      <ListItemButton onClick={() => onNavigate("/dashboard/products")}>
+        <ListItemText
+          primary="Products Management"
+          secondary="Manage products"
+        />
       </ListItemButton>
       {/* Extend as needed: orders, addresses, security, etc. */}
     </List>

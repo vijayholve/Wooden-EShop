@@ -528,9 +528,10 @@ const ReusableDataGrid = ({
 
       {/* Simplified: hide SCD filter container in simple mode */}
 
-      <Grid container
-      //  spacing={gridSpacing}
-       >
+      <Grid
+        container
+        //  spacing={gridSpacing}
+      >
         <Grid item xs={12}>
           {isMobile ? (
             // Mobile: card list view

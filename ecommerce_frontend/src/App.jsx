@@ -18,6 +18,7 @@ import PublicLayout from "./layouts/PublicLayout";
 import PrivateLayout from "./layouts/PrivateLayout";
 import UserListPage from "./pages/Dashboard/user/index.jsx";
 import ProductsList from "./pages/Dashboard/products/index.jsx";
+import ProductCreate from "./pages/Dashboard/products/create.jsx";
 // --- ROUTING CONFIGURATION ---
 // Define the routing map outside the components
 const ROUTES = {
@@ -85,12 +86,11 @@ const App = () => {
             <Route path="/" element={<ProductList />} />
             <Route path="/dashboard" element={<Dashboard />} />
             {/* now create user management routes */}
-            <Route path="/users" element={<UserListPage  />} />
+            <Route path="/users" element={<UserListPage />} />
             <Route path="/dashboard/products" element={<ProductsList />} />
+            <Route path="/dashboard/products/create" element={<ProductCreate />} />
             <Route path="/profile" element={<ProfileView />} />
             <Route path="/cart" element={<CartView />} />
- 
-
           </Route>
         </Routes>
         {/* Routes handled above. */}

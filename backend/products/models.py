@@ -1,20 +1,13 @@
 from django.db import models
 
 class Product(models.Model):
-    """
-    The main model for a product, storing core details, pricing, and stock.
-    """
     name = models.CharField(max_length=255, unique=True, verbose_name="Product Name")
     slug = models.SlugField(max_length=255, unique=True, help_text="A URL-friendly short label for the product.")
-    
-    # Core Details
     brand = models.CharField(max_length=100, default='Unbranded')
     short_description = models.TextField(max_length=500, verbose_name="Short Summary")
     long_description = models.TextField(verbose_name="Detailed Description")
     theme = models.CharField(max_length=100, blank=True, null=True)
     genre = models.CharField(max_length=100, blank=True, null=True)
-    
-    # Pricing and Stock
     price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Retail Price")
     discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name="Discount %")
     stock_quantity = models.IntegerField(default=0, verbose_name="Available Stock")

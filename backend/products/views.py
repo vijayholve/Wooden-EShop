@@ -2,7 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from .models import Product
-from .serializers import ProductSerializer
+from .serializers import ProductSerializer 
+import rest_framework
 # Import necessary utilities for slug generation and database error handling
 from django.utils.text import slugify 
 from django.db import IntegrityError
@@ -37,7 +38,6 @@ class ProductViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
-    # Override perform_create to handle potential IntegrityError/validation issues
     def perform_create(self, serializer):
         # 1. SLUG GENERATION LOGIC (from previous fix)
         # Check if the serializer data contains a slug or name to generate one
@@ -45,20 +45,16 @@ class ProductViewSet(viewsets.ModelViewSet):
             # Manually generate slug if not provided by the user
             slug = slugify(serializer.validated_data['name'])
             serializer.validated_data['slug'] = slug
-        
         # 2. ROBUST SAVE BLOCK
         try:
-            # Attempt to save the serialized instance
             serializer.save()
         except IntegrityError as e:
-            # This traps database constraint errors (e.g., duplicate unique field, foreign key issues)
-            # Since create() now handles validation, this mainly catches unique constraint errors.
-            error_message = f"Database constraint violation (Integrity Error): Check for duplicate unique fields (like slug or name) or missing foreign keys. Details: {e}"
-            return Response({"detail": error_message}, status=status.HTTP_400_BAD_REQUEST)
+            # Raise as DRF ValidationError so create() can catch and return 400
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"detail": f"Database constraint violation (Integrity Error): Check for duplicate unique fields (like slug or name) or missing foreign keys. Details: {e}"})
         except DjangoValidationError as e:
-            # This traps model-level validation errors not caught by the serializer.
-            error_message = f"Model validation failed (Django Validation Error): {e.message_dict}"
-            return Response({"detail": error_message}, status=status.HTTP_400_BAD_REQUEST)
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"detail": f"Model validation failed (Django Validation Error): {e.message_dict}"})
 
     # Custom Action to handle POST request to /api/v1/products/list/
     @action(detail=False, methods=['post'], url_path='list')
