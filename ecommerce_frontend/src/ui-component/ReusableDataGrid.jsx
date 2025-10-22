@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 // material-ui
@@ -172,6 +172,11 @@ const ReusableDataGrid = ({
   defaultPageSize = 10,
   height = 600,
   transformData = null,
+  // server fetch options
+  isPostRequest = false,
+  requestMethod,
+  // external trigger to reload server data
+  reloadKey = 0,
   onRowClick = null,
   selectionModel = null,
   onSelectionModelChange = null,
@@ -205,16 +210,40 @@ const ReusableDataGrid = ({
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [paginationModel, setPaginationModel] = useState({
+    // DataGrid paginationModel is zero-based (page: 0 is first page)
     page: 0,
     pageSize: defaultPageSize,
   });
+
+  // Stable handler to update pagination only when values actually change.
+  // Use functional update so the handler identity can be stable (no deps).
+  const handlePaginationModelChange = useCallback((newModel) => {
+    if (!newModel) return;
+    setPaginationModel((prev) => {
+      const newPage =
+        typeof newModel.page === "number" ? newModel.page : prev.page;
+      const newPageSize =
+        typeof newModel.pageSize === "number"
+          ? newModel.pageSize
+          : prev.pageSize;
+      if (newPage === prev.page && newPageSize === prev.pageSize) return prev;
+      return { page: newPage, pageSize: newPageSize };
+    });
+  }, []);
   // rowCount derived from gridData
   const [searchText, setSearchText] = useState("");
   // const [selectedRow, setSelectedRow] = useState(null);
   // gridFilters not used in simple mode
   const [gridData, setGridData] = useState([]);
+  // server-side total rows (used when fetchUrl provided)
+  const [serverTotalCount, setServerTotalCount] = useState(0);
+  // keep a ref to the latest onDataChange so it doesn't trigger recomputeData when parent passes a new function
+  const onDataChangeRef = React.useRef(onDataChange);
+  React.useEffect(() => {
+    onDataChangeRef.current = onDataChange;
+  }, [onDataChange]);
   // simplified: no user/permission/SCD dependencies
 
   // Sync external filters prop with internal gridFilters state
@@ -242,9 +271,23 @@ const ReusableDataGrid = ({
     const transformedData = transformData
       ? filteredData.map(transformData)
       : filteredData;
-    setGridData(transformedData);
-    if (onDataChange) onDataChange(transformedData);
-  }, [clientSideData, searchText, transformData, onDataChange]);
+    // Avoid updating state if data didn't change (shallow compare by row id)
+    const prev = prevGridDataRef.current || [];
+    const same =
+      prev.length === transformedData.length &&
+      prev.every(
+        (r, i) => getRowIdProp(r) === getRowIdProp(transformedData[i])
+      );
+    if (!same) setGridData(transformedData);
+    if (onDataChangeRef.current) onDataChangeRef.current(transformedData);
+  }, [clientSideData, searchText, transformData, getRowIdProp]);
+
+  // keep a ref of the previous gridData so recomputeData can compare without
+  // adding gridData to its dependency list (avoids update loops)
+  const prevGridDataRef = useRef([]);
+  useEffect(() => {
+    prevGridDataRef.current = gridData;
+  }, [gridData]);
 
   // Filters change handler is unnecessary in simple mode
 
@@ -252,26 +295,160 @@ const ReusableDataGrid = ({
     recomputeData();
   }, [recomputeData]);
 
-  const handleOnClickDelete = async (id) => {
-    if (!onDelete) return;
-    if (window.confirm("Are you sure you want to delete this item?")) {
-      try {
-        await onDelete(id);
-        toast.success("Item deleted successfully!");
-        recomputeData();
-      } catch (err) {
-        console.error(err);
-        toast.error("Failed to delete item.");
-      }
-    }
-  };
+  // Server-side fetching when fetchUrl is provided
+  useEffect(() => {
+    if (!fetchUrl) return;
 
-  const handleOnClickView = (id) => {
-    navigate(`${viewUrl}/${id}`);
-  };
-  const handleOnClickEnrollActionUrl = (id) => {
-    navigate(`${EnrollActionUrl}/${id}`);
-  };
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const doFetch = async () => {
+      setLoading(true);
+      try {
+        const pageToSend = (paginationModel?.page ?? 0) + 1; // server expects 1-based page
+        const sizeToSend = paginationModel?.pageSize ?? defaultPageSize;
+
+        const method =
+          (typeof requestMethod === "string" && requestMethod.toUpperCase()) ||
+          (isPostRequest ? "POST" : "GET");
+
+        let res;
+        console.log("Fetching data for ReusableDataGrid", { fetchUrl, method });
+        if (method === "GET") {
+          // build query params
+          const params = new URLSearchParams();
+          params.set("page", String(pageToSend));
+          params.set("size", String(sizeToSend));
+          if (searchText) params.set("search", searchText);
+          const url = fetchUrl.includes("?")
+            ? `${fetchUrl}&${params}`
+            : `${fetchUrl}?${params}`;
+          res = await fetch(url, { method: "GET", signal: controller.signal });
+        } else if (method === "POST") {
+          const body = { page: pageToSend, size: sizeToSend };
+          if (searchText) body.search = searchText;
+          res = await fetch(fetchUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
+        } else {
+          const body = { page: pageToSend, size: sizeToSend };
+          if (searchText) body.search = searchText;
+          res = await fetch(fetchUrl, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
+          console.log("Fetched data for ReusableDataGrid", { res });
+        }
+
+        if (cancelled) return;
+        if (!res.ok) {
+          // try to read json error
+          let errText = await res.text();
+          console.error(
+            "Server returned error for fetchUrl",
+            res.status,
+            errText
+          );
+          setGridData([]);
+          setServerTotalCount(0);
+          setLoading(false);
+          return;
+        }
+
+        const json = await res.json();
+
+        // Response can be array or paginated object
+        if (Array.isArray(json)) {
+          setGridData(transformData ? json.map(transformData) : json);
+          setServerTotalCount(json.length);
+        } else if (json.results && Array.isArray(json.results)) {
+          setGridData(
+            transformData ? json.results.map(transformData) : json.results
+          );
+          setServerTotalCount(
+            typeof json.count === "number" ? json.count : json.results.length
+          );
+        } else if (json.data && Array.isArray(json.data)) {
+          setGridData(transformData ? json.data.map(transformData) : json.data);
+          setServerTotalCount(
+            typeof json.total === "number" ? json.total : json.data.length
+          );
+        } else {
+          // fallback: try to find an array in the response
+          const arr = Object.values(json).find((v) => Array.isArray(v));
+          if (arr) {
+            setGridData(transformData ? arr.map(transformData) : arr);
+            setServerTotalCount(arr.length);
+          } else {
+            // unknown format
+            console.warn("Unexpected fetchUrl response shape", json);
+            setGridData([]);
+            setServerTotalCount(0);
+          }
+        }
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        console.error("Failed to fetch data for ReusableDataGrid", err);
+        setGridData([]);
+        setServerTotalCount(0);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    doFetch();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+    // paginationModel and searchText are intentional deps
+  }, [
+    fetchUrl,
+    paginationModel.page,
+    paginationModel.pageSize,
+    searchText,
+    requestMethod,
+    isPostRequest,
+    transformData,
+    defaultPageSize,
+    reloadKey,
+  ]);
+
+  const handleOnClickDelete = React.useCallback(
+    async (id) => {
+      if (!onDelete) return;
+      if (window.confirm("Are you sure you want to delete this item?")) {
+        try {
+          await onDelete(id);
+          toast.success("Item deleted successfully!");
+          recomputeData();
+        } catch (err) {
+          console.error(err);
+          toast.error("Failed to delete item.");
+        }
+      }
+    },
+    [onDelete, recomputeData]
+  );
+
+  const handleOnClickView = React.useCallback(
+    (id) => {
+      navigate(`${viewUrl}/${id}`);
+    },
+    [navigate, viewUrl]
+  );
+  const handleOnClickEnrollActionUrl = React.useCallback(
+    (id) => {
+      navigate(`${EnrollActionUrl}/${id}`);
+    },
+    [navigate, EnrollActionUrl]
+  );
   const handleSearch = (event) => {
     const newSearchText = event.target.value;
     setSearchText(newSearchText);
@@ -289,7 +466,6 @@ const ReusableDataGrid = ({
     }
     // setSelectedRow(params.row);
   };
-
   const hasActions =
     editUrl ||
     deleteUrl ||
@@ -297,166 +473,169 @@ const ReusableDataGrid = ({
     EnrollActionUrl ||
     customActions.length > 0;
 
-  const actionsColumn = hasActions
-    ? {
-        field: "actions",
-        headerName: "Actions",
-        width: 160,
-        sortable: false,
-        filterable: false,
-        renderCell: (params) => {
-          const hasCustomActions = customActions.length > 0;
+  // helper to map id to name if maps are provided
+  const getNameForId = (id, map) => (map && map[id] ? map[id] : id);
 
-          if (hasCustomActions) {
-            return (
-              <ActionWrapper>
-                {customActions.map((action, index) => {
-                  // if (action.permission && !hasPermission(permissions, entityName, action.permission)) {
-                  //   return null;
-                  // }
+  const processedColumns = React.useMemo(() => {
+    return propColumns.map((col) => {
+      if (col.field === "schoolId") {
+        return {
+          ...col,
+          headerName: col.headerName || "School",
+          valueFormatter: (params) => getNameForId(params.value, schoolNameMap),
+        };
+      }
+      if (col.field === "classId") {
+        return {
+          ...col,
+          headerName: col.headerName || "Class",
+          valueFormatter: (params) => getNameForId(params.value, classNameMap),
+        };
+      }
+      if (col.field === "divisionId") {
+        return {
+          ...col,
+          headerName: col.headerName || "Division",
+          valueFormatter: (params) =>
+            getNameForId(params.value, divisionNameMap),
+        };
+      }
 
-                  return (
-                    <Tooltip key={index} title={action.tooltip || action.label}>
-                      <IconButton
-                        size="small"
-                        color={action.color || "primary"}
-                        onClick={() => action.onClick(params.row)}
-                        sx={{
-                          "&:hover": {
-                            backgroundColor: `rgba(${
-                              action.color === "error"
-                                ? "244, 67, 54"
-                                : action.color === "info"
-                                ? "33, 150, 243"
-                                : "25, 118, 210"
-                            }, 0.1)`,
-                            transform: "scale(1.1)",
-                          },
-                        }}
-                      >
-                        {action.icon}
-                      </IconButton>
-                    </Tooltip>
-                  );
-                })}
+      return col;
+    });
+  }, [propColumns, schoolNameMap, classNameMap, divisionNameMap]);
 
-                {/* Removed unused 'More' menu button */}
-              </ActionWrapper>
-            );
-          }
+  const columns = React.useMemo(() => {
+    if (!hasActions) return processedColumns;
 
+    const actionCol = {
+      field: "actions",
+      headerName: "Actions",
+      width: 160,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const hasCustomActions = customActions.length > 0;
+        if (hasCustomActions) {
           return (
             <ActionWrapper>
-              {viewUrl && (
-                <Tooltip title="View Details">
+              {customActions.map((action, index) => (
+                <Tooltip key={index} title={action.tooltip || action.label}>
                   <IconButton
                     size="small"
-                    color="info"
-                    onClick={() => handleOnClickView(params.row.id)}
+                    color={action.color || "primary"}
+                    onClick={() => action.onClick(params.row)}
                     sx={{
                       "&:hover": {
-                        backgroundColor: "rgba(33, 150, 243, 0.1)",
+                        backgroundColor: `rgba(${
+                          action.color === "error"
+                            ? "244, 67, 54"
+                            : action.color === "info"
+                            ? "33, 150, 243"
+                            : "25, 118, 210"
+                        }, 0.1)`,
                         transform: "scale(1.1)",
                       },
                     }}
                   >
-                    <ViewIcon />
+                    {action.icon}
                   </IconButton>
                 </Tooltip>
-              )}
-              {EnrollActionUrl && (
-                <Tooltip title="Enroll">
-                  <IconButton
-                    size="small"
-                    color="secondary"
-                    onClick={() => handleOnClickEnrollActionUrl(params.row.id)}
-                    sx={{
-                      "&:hover": {
-                        backgroundColor: "rgba(156, 39, 176, 0.1)",
-                        transform: "scale(1.1)",
-                      },
-                    }}
-                  >
-                    <PersonAddIcon />
-                  </IconButton>
-                </Tooltip>
-              )}
-              {editUrl && (
-                <Tooltip title="Edit">
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    onClick={() => navigate(`${editUrl}/${params.row.id}`)}
-                    sx={{
-                      "&:hover": {
-                        backgroundColor: "rgba(25, 118, 210, 0.1)",
-                        transform: "scale(1.1)",
-                      },
-                    }}
-                  >
-                    <EditIcon />
-                  </IconButton>
-                </Tooltip>
-              )}
-              {deleteUrl && onDelete && (
-                <Tooltip title="Delete">
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleOnClickDelete(params.row.id)}
-                    sx={{
-                      "&:hover": {
-                        backgroundColor: "rgba(244, 67, 54, 0.1)",
-                        transform: "scale(1.1)",
-                      },
-                    }}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Tooltip>
-              )}
+              ))}
             </ActionWrapper>
           );
-        },
-      }
-    : null;
-  // Function to get the correct name for a given ID
-  const getNameForId = (id, map) => map[id] || "N/A";
+        }
 
-  const processedColumns = propColumns.map((col) => {
-    // If a custom valueFormatter is already defined, don't override it
-    if (col.valueFormatter || col.renderCell) {
-      return col;
-    }
-    // Simple mapping using provided name maps only
-    if (col.field === "schoolId") {
-      return {
-        ...col,
-        headerName: col.headerName || "School",
-        valueFormatter: (params) => getNameForId(params.value, schoolNameMap),
-      };
-    }
-    if (col.field === "classId") {
-      return {
-        ...col,
-        headerName: col.headerName || "Class",
-        valueFormatter: (params) => getNameForId(params.value, classNameMap),
-      };
-    }
-    if (col.field === "divisionId") {
-      return {
-        ...col,
-        headerName: col.headerName || "Division",
-        valueFormatter: (params) => getNameForId(params.value, divisionNameMap),
-      };
-    }
+        return (
+          <ActionWrapper>
+            {viewUrl && (
+              <Tooltip title="View Details">
+                <IconButton
+                  size="small"
+                  color="info"
+                  onClick={() => handleOnClickView(params.row.id)}
+                  sx={{
+                    "&:hover": {
+                      backgroundColor: "rgba(33, 150, 243, 0.1)",
+                      transform: "scale(1.1)",
+                    },
+                  }}
+                >
+                  <ViewIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            {EnrollActionUrl && (
+              <Tooltip title="Enroll">
+                <IconButton
+                  size="small"
+                  color="secondary"
+                  onClick={() => handleOnClickEnrollActionUrl(params.row.id)}
+                  sx={{
+                    "&:hover": {
+                      backgroundColor: "rgba(156, 39, 176, 0.1)",
+                      transform: "scale(1.1)",
+                    },
+                  }}
+                >
+                  <PersonAddIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            {editUrl && (
+              <Tooltip title="Edit">
+                <IconButton
+                  size="small"
+                  color="primary"
+                  onClick={() => navigate(`${editUrl}/${params.row.id}`)}
+                  sx={{
+                    "&:hover": {
+                      backgroundColor: "rgba(25, 118, 210, 0.1)",
+                      transform: "scale(1.1)",
+                    },
+                  }}
+                >
+                  <EditIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            {deleteUrl && onDelete && (
+              <Tooltip title="Delete">
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => handleOnClickDelete(params.row.id)}
+                  sx={{
+                    "&:hover": {
+                      backgroundColor: "rgba(244, 67, 54, 0.1)",
+                      transform: "scale(1.1)",
+                    },
+                  }}
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+          </ActionWrapper>
+        );
+      },
+    };
 
-    return col;
-  });
-
-  const columns = hasActions
-    ? [...processedColumns, actionsColumn]
-    : processedColumns;
+    return [...processedColumns, actionCol];
+  }, [
+    processedColumns,
+    hasActions,
+    customActions,
+    viewUrl,
+    EnrollActionUrl,
+    editUrl,
+    deleteUrl,
+    onDelete,
+    navigate,
+    handleOnClickDelete,
+    handleOnClickEnrollActionUrl,
+    handleOnClickView,
+  ]);
   const secondaryHeader = (
     <Grid
       container
@@ -596,9 +775,10 @@ const ReusableDataGrid = ({
                 rows={gridData}
                 columns={columns}
                 loading={loading}
+                {...(fetchUrl ? { rowCount: serverTotalCount } : {})}
                 pageSizeOptions={pageSizeOptions}
                 paginationModel={paginationModel}
-                onPaginationModelChange={setPaginationModel}
+                onPaginationModelChange={handlePaginationModelChange}
                 paginationMode={fetchUrl ? "server" : "client"}
                 getRowId={getRowIdProp}
                 onRowClick={onRowClick || handleRowClick}

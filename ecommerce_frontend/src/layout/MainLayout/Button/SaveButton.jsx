@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 // import { Button, Grid, Stack } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save'; // Import a save icon
-import AnimateButton from 'ui-component/extended/AnimateButton';
+import AnimateButton from "../../../ui-component/extended/AnimateButton";
 import { Button, Grid, Stack } from '@mui/material';
 /**
  * Reusable Save Button Component

@@ -5,7 +5,7 @@ import PropTypes from 'prop-types';
 // Assuming these are correctly imported from their respective paths
 import BackButton from './BackButton';
 import SaveButton from './SaveButton';
-import AnimateButton from 'ui-component/extended/AnimateButton';
+import AnimateButton from "../../../ui-component/extended/AnimateButton";
 
 /**
  * Reusable Back and Save Button Component
@@ -20,7 +20,7 @@ import AnimateButton from 'ui-component/extended/AnimateButton';
 const BackSaveButton = ({ title, backUrl, isSubmitting = false, onSaveClick = null }) => {
   return (
     <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-      <AnimateButton>
+      {/* <AnimateButton> */}
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
           <BackButton backUrl={backUrl} />
           <SaveButton title={title} isSubmitting={isSubmitting}
@@ -28,7 +28,7 @@ const BackSaveButton = ({ title, backUrl, isSubmitting = false, onSaveClick = nu
           onClick={onSaveClick}
            disabled={isSubmitting} />
         </Box>
-      </AnimateButton>
+      {/* </AnimateButton> */}
     </Box>
   );
 }; 

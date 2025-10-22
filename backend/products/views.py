@@ -42,7 +42,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         # 1. SLUG GENERATION LOGIC (from previous fix)
         # Check if the serializer data contains a slug or name to generate one
         if 'slug' not in serializer.validated_data and 'name' in serializer.validated_data:
-            # Manually generate slug if not provided by the user
+        # Manually generate slug if not provided by the user
             slug = slugify(serializer.validated_data['name'])
             serializer.validated_data['slug'] = slug
         # 2. ROBUST SAVE BLOCK

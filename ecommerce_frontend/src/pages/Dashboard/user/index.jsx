@@ -54,6 +54,7 @@ const UserListPage = () => {
     <Box sx={{ p: 1 }}>
       <ReusableDataGrid
         title="Users"
+        fetchUrl={"/api/v1/users/list/"}
         columns={columns}
         data={rows}
         searchPlaceholder="Search users..."

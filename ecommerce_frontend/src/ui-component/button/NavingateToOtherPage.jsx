@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types'; // Import PropTypes
-import AnimateButton from 'ui-component/extended/AnimateButton';
+import AnimateButton from '../extended/AnimateButton';
 import { Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate if not already there
 
