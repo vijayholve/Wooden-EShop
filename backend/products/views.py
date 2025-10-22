@@ -16,10 +16,9 @@ class ProductViewSet(viewsets.ModelViewSet):
     plus a custom 'list_products' endpoint for POST-based pagination.
     """
     # Only show available products by default, unless the user is an admin
-    queryset = Product.objects.filter(is_available=True).order_by('name')
+    queryset = Product.objects.all().order_by('name') #
     serializer_class = ProductSerializer
     lookup_field = 'slug'
-
     # Override the main 'create' method to catch validation errors explicitly
     # and return 400 Bad Request, preventing a hidden exception leading to 500.
     def create(self, request, *args, **kwargs):

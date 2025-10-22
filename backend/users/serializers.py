@@ -1,6 +1,25 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Customer
+# from rest_framework import serializers
+# from .models import CustomUser # Assuming your custom user model is CustomUser
+
+class UserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the CustomUser model, used for listing users in the dashboard.
+    """
+    class Meta:
+        model = Customer
+        fields = (
+            'id', 
+            'email', 
+            'first_name', 
+            'last_name', 
+            'is_staff', 
+            'is_active',
+            'date_joined'
+        )
+        read_only_fields = fields
 
 class CustomerProfileSerializer(serializers.ModelSerializer):
     """

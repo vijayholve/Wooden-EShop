@@ -5,6 +5,39 @@ from django.contrib.auth.models import User
 from .serializers import UserRegistrationSerializer, CustomerProfileSerializer
 from .models import Customer
 from django.shortcuts import get_object_or_404
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.filters import SearchFilter
+from django_filters.rest_framework import DjangoFilterBackend
+from .models import Customer # Assuming CustomUser from .models
+from .serializers import UserSerializer
+# You may need to create a pagination.py file if you haven't, or rely on a setting in settings.py
+# If you don't have a custom pagination class, Django uses the default set in settings.
+# from backend.pagination import StandardResultsSetPagination 
+
+class UserViewSet(viewsets.ModelViewSet):
+    """
+    A ViewSet for viewing and managing CustomUser instances for the admin dashboard.
+    """
+    # Queryset: Show all users for staff/admin to manage
+    # Customer model doesn't have 'email' directly; order by related User email
+    queryset = Customer.objects.select_related('user').all().order_by('user__email')
+    serializer_class = UserSerializer
+    
+    # Security: Only authenticated admin/staff users should access this list
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    
+    # Enable filtering and searching
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    search_fields = ['email', 'first_name', 'last_name']
+    
+    # Note: DRF handles the default GET list method and pagination automatically.
+    # We add a custom action to map to your non-standard URL pattern /users/list/
+    # This action allows /api/v1/users/list/?page=1&size=10 to work correctly.
+    @action(detail=False, methods=['get'], url_path='list')
+    def list_users(self, request, *args, **kwargs):
+        """Maps /users/list/ to the standard list functionality."""
+        return self.list(request, *args, akwargs)
 
 class CustomerViewSet(viewsets.ModelViewSet):
     """
