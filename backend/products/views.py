@@ -17,7 +17,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     plus a custom 'list_products' endpoint for POST-based pagination.
     """
     # Only show available products by default, unless the user is an admin
-    queryset = Product.objects.all().order_by('name') #
+    queryset = Product.objects.all().order_by('name') 
     serializer_class = ProductSerializer
     lookup_field = 'slug'
     # Override the main 'create' method to catch validation errors explicitly
@@ -56,30 +56,34 @@ class ProductViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import ValidationError
             raise ValidationError({"detail": f"Model validation failed (Django Validation Error): {e.message_dict}"})
 
-    # Custom Action to handle POST request to /api/v1/products/list/
-    @action(detail=False, methods=['post'], url_path='list')
+    # Custom Action to handle POST or GET requests to /api/v1/products/list/
+    @action(detail=False, methods=['get', 'post'], url_path='list')
     def list_products(self, request):
         """
-        Custom endpoint to list products with manual pagination via POST body.
-        Payload: {"page": <int>, "size": <int>}
+        Custom endpoint to list products with manual pagination.
+
+        - For POST: accept JSON body {"page": <int>, "size": <int>}.
+        - For GET: accept query params ?page=<int>&size=<int>.
+        Defaults: page=1, size=10. Both must be integers >= 1.
         """
         try:
-            # Safely get pagination parameters from request body, defaulting to page 1 and size 10
-            page_number = int(request.data.get('page', 1))
-            page_size = int(request.data.get('size', 10))
+            # Use query params for GET, request.data for POST
+            source = request.query_params if request.method == 'GET' else request.data
+
+            # Safely get pagination parameters, defaulting to page 1 and size 10
+            page_number = int(source.get('page', 1))
+            page_size = int(source.get('size', 10))
 
             # Validation: page and size must be at least 1
             if page_number < 1 or page_size < 1:
-                 return Response({
-                    "detail": "Both 'page' and 'size' must be integers greater than or equal to 1."
-                 }, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"detail": "Both 'page' and 'size' must be integers greater than or equal to 1."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         except (ValueError, TypeError):
             # Handles cases where 'page' or 'size' are not valid integers
-            return Response(
-                {"detail": "Both 'page' and 'size' must be valid integers."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "Both 'page' and 'size' must be valid integers."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Get the base queryset and apply filters if any (e.g., is_available=True)
         queryset = self.filter_queryset(self.get_queryset())

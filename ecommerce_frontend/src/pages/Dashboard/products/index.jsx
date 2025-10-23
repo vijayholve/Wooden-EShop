@@ -57,16 +57,17 @@ const ProductsList = () => {
 
   // Define columns for the grid
 const columns = [
+  { field: "id", headerName: "Id", width: 200 },
     { field: "name", headerName: "Name", width: 200 },
     // CORRECTED: Changed 'category' to 'brand' as 'brand' is a field present 
     // in the ProductSerializer for grouping/display.
-    { field: "brand", headerName: "Brand", width: 150 }, 
-    { field: "price", headerName: "Price", width: 120 },
-    { field: "stock_quantity", headerName: "Stock", width: 100 },
+    { field: "brand", headerName: "Brand", width: 200 }, 
+    { field: "price", headerName: "Price", width: 200 },
+    { field: "stock_quantity", headerName: "Stock", width: 200 },
     {
       field: "is_available",
       headerName: "Available",
-      width: 100,
+      width: 200,
       type: "boolean",
     },
   ];
@@ -74,7 +75,7 @@ const columns = [
     <Box sx={{ p: 1 }}>
       <ReusableDataGrid
         title="Products"
-        fetchUrl="/api/v1/products/list"
+        fetchUrl="/products/list"
         isPostRequest={true} 
         reloadKey={reloadKey}
         addActionUrl="/dashboard/products/create"
